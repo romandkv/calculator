@@ -9,5 +9,6 @@ import (
 func main() {
 	calc := calculator.GetCalculator()
 
-	fmt.Println(calc.Run("1 + 3 * 6 / 2"))
+	fmt.Println(calc.Run("(8+2*5)/(1+3*(2-4))"))
+	fmt.Println(calc.Run("(8+2*5()/(1+3*(2-4))"))
 }

@@ -8,21 +8,20 @@ import (
 	"github.com/romandkv/calc/pkg/stack"
 )
 
+type operator rune
+
 type calculator struct {
-	operatorQueue stack.Queue
-	tempStack     stack.Stack
-	resultStack   stack.Stack
+	tempStack   stack.Stack
+	resultQueue stack.Queue
 }
 
 func (calc *calculator) reset() {
-	calc.operatorQueue.Reset()
-	calc.resultStack.Reset()
+	calc.resultQueue.Reset()
 	calc.tempStack.Reset()
 }
 
 func (calc *calculator) init() {
-	calc.operatorQueue = stack.GetQueue()
-	calc.resultStack = stack.GetStack()
+	calc.resultQueue = stack.GetQueue()
 	calc.tempStack = stack.GetStack()
 }
 
@@ -33,39 +32,59 @@ func GetCalculator() calculator {
 }
 
 func (calc calculator) Run(expression string) (float64, error) {
+	defer calc.reset()
 	calc.init()
+	expression = clearWhitespaces(expression)
+	if !validateBrackets(expression) {
+		return 0, errors.New("Invalid brackets")
+	}
 	calc.makeNotation(clearWhitespaces(expression))
 	return calc.calculate()
 }
 
-func (calc *calculator) calculate() (float64, error) {
-	var result float64 = 0
-	var tempNum *float64
+func validateBrackets(exp string) bool {
+	open := 0
 
-	if calc.operatorQueue.Length()+1 != calc.resultStack.Length() {
+	for _, char := range exp {
+		if char == '(' {
+			open++
+		}
+		if char == ')' {
+			open--
+		}
+		if open < 0 {
+			return false
+		}
+	}
+	return open == 0
+}
+
+func (calc *calculator) calculate() (float64, error) {
+	operands := stack.GetStack()
+	if calc.resultQueue.Length() == 1 {
+		return calc.resultQueue.Pop().(float64), nil
+	}
+	if calc.resultQueue.Length() < 3 {
 		return 0, errors.New("Error in expression")
 	}
-	if calc.resultStack.Length() == 0 {
-		return calc.resultStack.Pop().(float64), nil
-	}
 	for {
-		if calc.operatorQueue.Head() == nil && calc.resultStack.Head() == nil {
-			return result, nil
+		value := calc.resultQueue.Pop()
+		if _, ok := value.(operator); !ok {
+			operands.Push(value)
+			continue
 		}
-		if tempNum == nil {
-			tempNum = new(float64)
-			*tempNum = calc.resultStack.Pop().(float64)
+		operands.Push(makeOperation(
+			operands.Pop().(float64),
+			operands.Pop().(float64),
+			value.(operator),
+		))
+		if calc.resultQueue.Length() == 0 {
+			return operands.Pop().(float64), nil
 		}
-		result = makeOperation(
-			*tempNum,
-			calc.resultStack.Pop().(float64),
-			calc.operatorQueue.Pop().(rune),
-		)
-		*tempNum = result
 	}
 }
 
-func makeOperation(left, right float64, operator rune) float64 {
+func makeOperation(right, left float64, operator operator) float64 {
 	switch operator {
 	case '+':
 		return left + right
@@ -90,14 +109,14 @@ func (calc *calculator) makeNotation(expression string) error {
 		}
 		calc.pushOperand(string(operand))
 		operand = make([]rune, 0, 20)
-		calc.handleOperator(char)
+		calc.handleOperator(operator(char))
 		if err != nil {
 			return err
 		}
 	}
 	calc.pushOperand(string(operand))
 	for calc.tempStack.Head() != nil {
-		calc.operatorQueue.Push(calc.tempStack.Pop())
+		calc.resultQueue.Push(calc.tempStack.Pop())
 	}
 	return nil
 }
@@ -110,37 +129,44 @@ func (calc *calculator) pushOperand(operand string) error {
 	if err != nil {
 		return err
 	}
-	calc.resultStack.Push(parsedOperand)
+	calc.resultQueue.Push(parsedOperand)
 	return nil
 }
 
-func (calc *calculator) handleOperator(operator rune) {
-	currentPriority := getPriority(operator)
+func (calc *calculator) handleOperator(op operator) {
+	currentPriority := getPriority(op)
 	head := calc.tempStack.Head()
 	headPriority := -1
 	if head != nil {
-		headPriority = getPriority(head.(rune))
+		headPriority = getPriority(head.(operator))
+	}
+	if op == '(' {
+		calc.tempStack.Push(op)
+		return
+	}
+	if op == ')' {
+		for calc.tempStack.Head().(operator) != '(' {
+			calc.resultQueue.Push(calc.tempStack.Pop())
+		}
+		calc.tempStack.Pop()
+		return
 	}
 	if currentPriority < headPriority {
-		calc.operatorQueue.Push(calc.tempStack.Pop())
+		calc.resultQueue.Push(calc.tempStack.Pop())
 	}
-	calc.tempStack.Push(operator)
+	calc.tempStack.Push(op)
 }
 
-func getPriority(operator rune) int {
+func getPriority(operator operator) int {
 	switch operator {
 	case '-':
-		return 0
-	case '+':
 		return 1
-	case '*':
+	case '+':
 		return 2
 	case '/':
 		return 3
-	case ')':
+	case '*':
 		return 4
-	case '(':
-		return 5
 	}
 	return -1
 }
