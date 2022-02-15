@@ -1,3 +1,3 @@
-module github.com/romandkv/calc
+module github.com/romandkv/calculator
 
 go 1.16
