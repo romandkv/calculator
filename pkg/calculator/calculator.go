@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"unicode"
 
-	"github.com/romandkv/calc/pkg/stack"
+	"github.com/romandkv/calculator/pkg/stack"
 )
 
 // Оболочка для оператора

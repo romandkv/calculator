@@ -2,13 +2,17 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 
-	"github.com/romandkv/calc/pkg/calculator"
+	"github.com/romandkv/calculator/pkg/calculator"
 )
 
 func main() {
+	if len(os.Args) != 2 {
+		log.Fatalln("expression isnt defined")
+	}
 	calc := calculator.GetCalculator()
 
-	fmt.Println(calc.Run("(8+2*5)/(1+3*(2-4))"))
-	fmt.Println(calc.Run("(8+2*5()/(1+3*(2-4))"))
+	fmt.Println(calc.Run(os.Args[1]))
 }
